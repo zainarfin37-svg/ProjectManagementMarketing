@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Project Tracker Dashboard — Real Data from Master Sheet (Dummy v2)</title>
+<link href="https://fonts.googleapis.com/css2?family=Mulish:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#f7f6f3;--sur:#fff;--s2:#f4f3f0;--bdr:#e6e4e0;--txt:#18160f;--mut:#8a8578;
+    --p:#1a2f4b;--dk:#0d1826;
+    --up:#16a34a;--dn:#dc2626;
+  }
+  *{box-sizing:border-box;}
+  body{
+    color:var(--txt);font-family:'Mulish',sans-serif;font-size:13.5px;margin:0;padding:22px;
+    background:
+      radial-gradient(ellipse 55% 45% at 8% 0%, rgba(139,92,246,.28), transparent 60%),
+      radial-gradient(ellipse 50% 40% at 96% 8%, rgba(45,212,191,.24), transparent 60%),
+      radial-gradient(ellipse 60% 50% at 50% 105%, rgba(236,72,153,.18), transparent 65%),
+      linear-gradient(160deg, #f3f0fb 0%, #eef6f5 45%, #fdf2f6 100%);
+    min-height:100vh;
+  }
+  .card{
+    background:rgba(255,255,255,.6);
+    backdrop-filter:blur(22px) saturate(160%);-webkit-backdrop-filter:blur(22px) saturate(160%);
+    border:1px solid rgba(255,255,255,.7);
+    border-radius:24px;padding:18px 20px;
+    box-shadow:0 10px 34px rgba(90,60,150,.08), inset 0 1px 0 rgba(255,255,255,.6);
+  }
+  .wrap{max-width:1520px;margin:0 auto;}
+  .dummy-note{background:#fffbf0;border:1px solid #e8d9a0;border-left:3px solid #d0021b;border-radius:8px;padding:12px 20px;margin-bottom:18px;font-size:12.5px;color:#5a5140;line-height:1.6;}
+  .data-badge{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;padding:4px 10px;border-radius:10px;}
+  .data-badge.live{background:#e6f4ed;color:var(--up);}
+  .data-badge.sample{background:#fdf3d0;color:#9c7a0a;}
+
+
+  .page-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;}
+  .page-title{font-size:20px;font-weight:800;display:flex;align-items:center;gap:10px;}
+  .page-sub{font-size:12px;color:var(--mut);margin-top:2px;}
+  .head-right{display:flex;align-items:center;gap:12px;font-size:11.5px;color:var(--mut);}
+
+  .filter-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px;padding:12px 18px;}
+  .filter-bar select{padding:8px 16px;border-radius:999px;border:1px solid rgba(255,255,255,.8);background:rgba(255,255,255,.7);font-family:inherit;font-size:12px;color:var(--txt);box-shadow:inset 0 1px 0 rgba(255,255,255,.6);}
+  .period-filter-label{font-size:10.5px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;}
+  .period-seg{position:relative;display:inline-flex;background:rgba(255,255,255,.5);border-radius:999px;padding:4px;gap:2px;}
+  .period-seg button{all:unset;cursor:pointer;padding:7px 15px;border-radius:999px;font-size:12px;font-weight:700;color:var(--mut);transition:color .2s;}
+  .period-seg button.active{background:linear-gradient(120deg,#8b5cf6,#6366f1);color:#fff;box-shadow:0 4px 12px rgba(99,102,241,.35);}
+  #periodSubFilter select, #periodSubFilter input{padding:7px 14px;border-radius:999px;border:1px solid rgba(255,255,255,.8);background:rgba(255,255,255,.7);font-family:inherit;font-size:12px;color:var(--txt);}
+  .clear-filters-btn{all:unset;cursor:pointer;font-size:12px;font-weight:700;color:var(--mut);padding:8px 16px;border-radius:999px;margin-left:auto;}
+  .clear-filters-btn:hover{background:rgba(255,255,255,.6);color:var(--txt);}
+
+  .kpi-row{display:grid;gap:12px;margin-bottom:6px;}
+  .kpi-row-4{grid-template-columns:repeat(4,1fr);}
+  .kpi-row-2{grid-template-columns:1fr 1fr;}
+  @media(max-width:900px){.kpi-row-4{grid-template-columns:repeat(2,1fr);} .kpi-row-2{grid-template-columns:repeat(2,1fr);}}
+  .kpi-group-label{font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.05em;margin:16px 0 10px;}
+  .kpi-group-label:first-of-type{margin-top:0;}
+  .kpi-group-label span{text-transform:none;font-weight:500;letter-spacing:0;color:#a8a29e;}
+  .kpi-card{display:flex;align-items:center;gap:12px;transition:transform .18s,box-shadow .18s;cursor:pointer;}
+  .kpi-card.warn-amber{background:#eab308; border-color:#ca8a04; box-shadow:0 8px 24px rgba(202,138,4,.3);}
+  .kpi-card.warn-red{background:#dc2626; border-color:#b91c1c; box-shadow:0 8px 24px rgba(185,28,28,.3);}
+  .kpi-card.warn-amber .kpi-label, .kpi-card.warn-amber .kpi-sub{color:#3f2d05;}
+  .kpi-card.warn-amber .kpi-val{color:#1c1400;}
+  .kpi-card.warn-red .kpi-label, .kpi-card.warn-red .kpi-sub{color:rgba(255,255,255,.85);}
+  .kpi-card.warn-red .kpi-val{color:#fff;}
+  .kpi-card.warn-amber .kpi-icon, .kpi-card.warn-red .kpi-icon{background:rgba(255,255,255,.28)!important;box-shadow:none;}
+  .kpi-card.warn-flat{padding:10px 20px;}
+  .kpi-card.warn-flat .kpi-icon{width:28px;height:28px;font-size:13px;flex-shrink:0;}
+  .kpi-card.warn-flat .kpi-label{font-size:11px;letter-spacing:1px;white-space:nowrap;}
+  .warn-val-wrap{margin-left:auto;display:flex;align-items:baseline;gap:8px;}
+  .warn-val-wrap .kpi-val{font-size:18px;margin-top:0;}
+  .warn-val-wrap .kpi-sub{margin-top:0;white-space:nowrap;}
+  @keyframes flashHighlight{0%{box-shadow:0 0 0 3px rgba(99,102,241,.5);}100%{box-shadow:0 10px 34px rgba(90,60,150,.08);}}
+  .flash-highlight{animation:flashHighlight .9s ease-out;}
+  .kpi-card:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(0,0,0,.09);}
+  .kpi-icon{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;color:#fff;box-shadow:0 6px 16px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.3);}
+  .kpi-label{font-size:10px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:1.2px;}
+  .kpi-val{font-family:'DM Mono',monospace;font-size:19px;font-weight:500;letter-spacing:-.5px;margin-top:2px;}
+  .kpi-sub{font-size:10px;color:var(--mut);margin-top:1px;}
+
+  .panel-row{display:grid;grid-template-columns:1.1fr 1fr 1fr 1.3fr;gap:14px;margin-bottom:16px;}
+  @media(max-width:1100px){.panel-row{grid-template-columns:1fr 1fr;}}
+  .panel-title{font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px;}
+
+  .gauge-wrap{position:relative;width:160px;height:160px;margin:0 auto 8px;}
+  .gauge-wrap canvas{width:100%!important;height:100%!important;}
+  .gauge-pct{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+  .gauge-pct b{font-size:22px;font-weight:800;}
+  .gauge-pct span{font-size:9px;color:var(--mut);}
+
+  .donut-wrap{position:relative;width:160px;height:160px;margin:0 auto;}
+  .donut-wrap canvas{width:100%!important;height:100%!important;}
+  .legend-list{margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;}
+  .legend-row{display:flex;align-items:center;gap:5px;font-size:10px;min-width:0;}
+  .legend-row span:not(.legend-dot){overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+  .legend-row b{font-weight:800;margin-left:auto;}
+
+  .gantt-row{display:flex;align-items:center;height:32px;font-size:11.5px;}
+  .gantt-label{width:190px;flex-shrink:0;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:8px;}
+  .gantt-owner{width:70px;flex-shrink:0;color:var(--mut);font-size:10.5px;}
+  .gantt-track{flex:1;position:relative;height:18px;background:var(--s2);border-radius:5px;}
+  .gantt-bar{position:absolute;top:0;height:100%;border-radius:5px;display:flex;align-items:center;justify-content:flex-end;padding-right:6px;color:#fff;font-size:9.5px;font-weight:700;white-space:nowrap;overflow:hidden;}
+  .gantt-explainer{font-size:11px;color:var(--mut);margin:-8px 0 10px;line-height:1.5;}
+  .gantt-legend{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--bdr);}
+  .gantt-legend-item{display:flex;align-items:center;gap:5px;font-size:10.5px;color:var(--mut);}
+  .gantt-legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+  .gantt-col-headers{display:flex;font-size:9.5px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;}
+  .gantt-today-line{position:absolute;top:-4px;bottom:0;width:2px;background:#dc2626;z-index:2;}
+  .gantt-today-label{position:absolute;top:-16px;font-size:8.5px;font-weight:800;color:#dc2626;transform:translateX(-50%);white-space:nowrap;}
+  .gantt-header-wrap{margin:0 0 10px 260px;position:relative;height:16px;}
+  .gantt-header-track{position:relative;width:100%;height:100%;border-left:1px solid var(--bdr);}
+  .gantt-tick{position:absolute;top:0;font-size:9.5px;color:var(--mut);white-space:nowrap;padding-left:4px;border-left:1px solid var(--bdr);height:100%;}
+  .gantt-bar-label-outside{position:absolute;top:0;height:100%;display:flex;align-items:center;font-size:10px;font-weight:700;color:var(--txt);white-space:nowrap;}
+  .gantt-scroll{max-height:360px;overflow-y:auto;}
+
+  .milestone-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--bdr);}
+  .milestone-row:last-child{border-bottom:none;}
+  .status-pill{font-size:9.5px;font-weight:700;padding:4px 11px;border-radius:999px;white-space:nowrap;}
+
+  table{width:100%;border-collapse:collapse;font-size:12px;}
+  thead{background:var(--dk);color:#fff;}
+  th{padding:9px 10px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;}
+  td{padding:9px 10px;border-bottom:1px solid var(--bdr);}
+  tbody tr:hover{background:var(--s2);cursor:pointer;}
+  .priority-pill{font-size:9.5px;font-weight:700;padding:4px 11px;border-radius:999px;white-space:nowrap;}
+  .vertical-pill{font-size:9.5px;font-weight:700;padding:4px 11px;border-radius:999px;color:#fff;white-space:nowrap;box-shadow:0 3px 8px rgba(0,0,0,.15);}
+  .progress-mini{display:flex;align-items:center;gap:6px;}
+  .progress-mini-track{width:60px;height:6px;border-radius:3px;background:var(--s2);overflow:hidden;flex-shrink:0;}
+  .progress-mini-fill{height:100%;border-radius:3px;background:#2563eb;}
+
+  .workload-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+  .workload-name{width:80px;flex-shrink:0;font-size:11.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .workload-track{flex:1;height:14px;border-radius:5px;background:var(--s2);overflow:hidden;}
+  .workload-fill{height:100%;border-radius:5px;}
+  .workload-count{width:20px;text-align:right;font-size:11px;font-weight:800;}
+
+  .row-2col{display:grid;grid-template-columns:1.6fr 1fr;gap:14px;margin-bottom:16px;}
+  @media(max-width:1000px){.row-2col{grid-template-columns:1fr;}}
+
+  #projectTable tbody tr{cursor:pointer;}
+  .modal-overlay{position:fixed;inset:0;background:rgba(20,16,12,.5);display:none;align-items:flex-start;justify-content:center;padding:40px 20px;z-index:200;overflow-y:auto;}
+  .modal-overlay.open{display:flex;}
+  .modal{background:rgba(255,255,255,.85);backdrop-filter:blur(24px) saturate(160%);-webkit-backdrop-filter:blur(24px) saturate(160%);border:1px solid rgba(255,255,255,.8);border-radius:24px;max-width:620px;width:100%;box-shadow:0 30px 70px rgba(90,60,150,.25);}
+  .modal-head{padding:22px 26px 0;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;}
+  .modal-title{font-size:17px;font-weight:800;}
+  .modal-sub{font-size:12px;color:var(--mut);margin-top:3px;}
+  .modal-close{all:unset;cursor:pointer;font-size:18px;color:var(--mut);padding:4px;}
+  .modal-body{padding:16px 26px 26px;}
+  .modal-badges{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
+  .modal-progress-wrap{margin-bottom:18px;}
+  .modal-progress-label{display:flex;justify-content:space-between;font-size:11px;color:var(--mut);margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em;}
+  .modal-progress-label b{color:var(--txt);font-size:13px;}
+  .modal-progress-track{height:8px;border-radius:4px;background:var(--s2);overflow:hidden;}
+  .modal-progress-fill{height:100%;border-radius:4px;background:#2563eb;}
+  .modal-meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 20px;margin-bottom:18px;padding-bottom:18px;border-bottom:1px solid var(--bdr);}
+  .modal-meta-item{font-size:12.5px;}
+  .modal-meta-item .l{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px;}
+  .modal-meta-item .v{font-weight:700;}
+  .modal-section-label{font-size:10.5px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;margin-top:16px;}
+  .modal-desc-text{font-size:13px;line-height:1.6;color:var(--txt);white-space:pre-wrap;}
+  .modal-readonly-note{margin-top:20px;padding-top:14px;border-top:1px solid var(--bdr);font-size:11.5px;color:var(--mut);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="dummy-note">
+    💡 Rebuilt around your real Master sheet structure — Vertical (16 real publisher/business-unit values, color-tied to your publisher palette), 7-state Health Status, and normalized % Complete (your sheet mixes fraction and whole-number formats — both are handled). Data below is your actual 65 projects, extracted directly from the XLSX you shared. Not yet live via Apps Script, per your request — that comes after this structure is confirmed.
+  </div>
+
+  <div class="page-head">
+    <div>
+      <div class="page-title">📊 Project Tracker Dashboard</div>
+      <div class="page-sub">Real-time overview of all projects and progress — sourced from the Master worksheet</div>
+    </div>
+    <div class="head-right">
+      <span class="data-badge sample" id="dataBadge">● Sample data (from your uploaded file)</span>
+      <span id="lastUpdated"></span>
+    </div>
+  </div>
+
+  <div class="card" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:12px;">
+    <span class="period-filter-label">Period</span>
+    <div class="period-seg" id="periodSeg">
+      <button class="active" data-period="all">All Time</button>
+      <button data-period="range">Date Range</button>
+      <button data-period="month">Monthly</button>
+      <button data-period="quarter">Quarterly</button>
+      <button data-period="year">Yearly</button>
+    </div>
+    <div id="periodSubFilter"></div>
+  </div>
+
+  <div class="card filter-bar">
+    <select id="verticalFilter"><option value="all">All Verticals</option></select>
+    <select id="ownerFilter"><option value="all">All Owners</option></select>
+    <select id="statusFilter">
+      <option value="all">All Status</option>
+      <option value="Completed">Completed</option>
+      <option value="In Progress">In Progress</option>
+      <option value="Cancelled">Cancelled</option>
+    </select>
+    <select id="healthFilter">
+      <option value="all">All Health</option>
+      <option value="DONE">Done</option>
+      <option value="ON TRACK">On Track</option>
+      <option value="EARLY">Early</option>
+      <option value="AT RISK">At Risk</option>
+      <option value="OVERDUE">Overdue</option>
+      <option value="CANCELLED">Cancelled</option>
+      <option value="NO DEADLINE">No Deadline</option>
+    </select>
+    <button class="clear-filters-btn" id="clearFiltersBtn">Clear filters</button>
+  </div>
+
+  <div class="kpi-group-label">By Status <span>— these 4 add up to Total Projects</span></div>
+  <div class="kpi-row kpi-row-4" id="kpiRowStatus"></div>
+
+  <div class="kpi-group-label">Health Signals <span>— can overlap with any status above (e.g. an "In Progress" project can also be "At Risk")</span></div>
+  <div class="kpi-row kpi-row-2" id="kpiRowHealth"></div>
+
+  <div class="panel-row">
+    <div class="card">
+      <div class="panel-title">Overall Progress</div>
+      <div class="gauge-wrap"><canvas id="gaugeChart"></canvas><div class="gauge-pct"><b id="gaugePctLabel">0%</b><span>Avg. Complete</span></div></div>
+    </div>
+    <div class="card">
+      <div class="panel-title">Projects by Status</div>
+      <div style="position:relative;height:200px;">
+        <canvas id="statusBarChart"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <div class="panel-title">Projects by Priority</div>
+      <div class="donut-wrap"><canvas id="priorityDonut"></canvas></div>
+      <div class="legend-list" id="priorityLegend"></div>
+    </div>
+    <div class="card">
+      <div class="panel-title">Health Status (7-state)</div>
+      <div class="donut-wrap"><canvas id="healthDonut"></canvas></div>
+      <div class="legend-list" id="healthLegend"></div>
+    </div>
+  </div>
+
+  <div class="row-2col">
+    <div class="card">
+      <div class="panel-title">Project Timeline (Gantt View)</div>
+      <div class="gantt-explainer">Each bar spans a project's Start → Due Date. Color shows Health Status, the number is % Complete.</div>
+      <div class="gantt-legend" id="ganttLegend"></div>
+      <div class="gantt-col-headers"><span style="width:190px;">Project</span><span style="width:70px;">Owner</span></div>
+      <div class="gantt-scroll"><div id="ganttArea"></div></div>
+    </div>
+    <div class="card">
+      <div class="panel-title">Workload Overview (by Owner)</div>
+      <div style="font-size:10.5px;color:var(--mut);margin:-8px 0 12px;">Bar = average progress across owned projects</div>
+      <div id="workloadArea"></div>
+    </div>
+  </div>
+
+  <div class="card" id="projectListCard">
+    <div class="panel-title">Project List — click a row for full details</div>
+    <table>
+      <thead><tr><th>Project</th><th>Vertical</th><th>Owner</th><th>Priority</th><th>Status</th><th>Progress</th><th>Health</th><th>Due Date</th></tr></thead>
+      <tbody id="projectTable"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <div>
+        <div class="modal-title" id="modalTitle"></div>
+        <div class="modal-sub" id="modalSub"></div>
+      </div>
+      <button class="modal-close" onclick="closeProjectModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-badges" id="modalBadges"></div>
+      <div class="modal-progress-wrap">
+        <div class="modal-progress-label"><span>Progress</span><b id="modalProgressPct"></b></div>
+        <div class="modal-progress-track"><div class="modal-progress-fill" id="modalProgressFill"></div></div>
+      </div>
+      <div class="modal-meta-grid" id="modalMetaGrid"></div>
+      <div id="modalDescWrap" style="display:none;">
+        <div class="modal-section-label">Objective / Scope</div>
+        <div class="modal-desc-text" id="modalDescText"></div>
+      </div>
+      <div id="modalRemarksWrap" style="display:none;">
+        <div class="modal-section-label">Expected Output / Remarks</div>
+        <div class="modal-desc-text" id="modalRemarksText"></div>
+      </div>
+      <div class="modal-readonly-note">🔒 Read-only view — updates happen in the Master worksheet, not here.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const ALL_PROJECTS = [{"id": "IDN-001", "name": "IS 2026: IG & Tiktok Paid Ads", "vertical": "IDN Times", "owner": "Irabilla", "priority": "P1 - High", "description": "Awareness and Ticket Purchase", "start": "2026-06-01", "due": "2026-06-17", "status": "Completed", "progress": 100, "remarks": "IS 2026 ADS REPORT", "announcedBy": "", "daysToDeadline": -53, "health": "DONE"}, {"id": "IDN-002", "name": "IS 2026: Community Activations & Visits", "vertical": "IDN Times", "owner": "Irabilla", "priority": "P1 - High", "description": "New Community Conversions", "start": "2026-06-01", "due": "2026-06-17", "status": "Completed", "progress": 100, "remarks": "# of community Retantion: 100\n# of community members recruited: 210", "announcedBy": "", "daysToDeadline": -53, "health": "DONE"}, {"id": "IDN-003", "name": "TT12: Invitation & Announcement", "vertical": "Corporate", "owner": "Widya", "priority": "P1 - High", "description": "12th Timmyversary Celebration", "start": "2026-06-03", "due": "2026-06-04", "status": "In Progress", "progress": 60, "remarks": "Technical meeting 12 June", "announcedBy": "", "daysToDeadline": "4 days", "health": "ON TRACK"}, {"id": "IDN-004", "name": "IDN Kids: Corgiville Search and Youtube optimization Initiative", "vertical": "IDN Kids", "owner": "Wendy N", "priority": "P2 - Medium", "description": "Strengthen IDN Kids & Corgiville's digital visibility through website audits, on-page optimization, and promotional articles across the IDN media ecosystem, as well as increasing Corgiville's reach & engagement on YouTube.", "start": "2026-06-03", "due": "2026-06-10", "status": "Completed", "progress": 100, "remarks": "IDN Kids and Corgiville product growth has seen increased searches on Search and YouTube.", "announcedBy": "", "daysToDeadline": -60, "health": "DONE"}, {"id": "IDN-005", "name": "IDN Kids: Corgiville Youtube Paid Ads", "vertical": "IDN Kids", "owner": "Septi R", "priority": "P2 - Medium", "description": "Support Ads IDN Kids untuk push audience US", "start": "", "due": "", "status": "In Progress", "progress": 0, "remarks": "Menambah US audience dan subscribers.", "announcedBy": "", "daysToDeadline": "", "health": "NO DEADLINE"}, {"id": "IDN-006", "name": "IDN Kids: PR & Community Engagements", "vertical": "IDN Kids", "owner": "Widya", "priority": "P2 - Medium", "description": "To start preparing plan for PR and community engagement", "start": "2026-06-03", "due": "2026-10-06", "status": "In Progress", "progress": 0, "remarks": "Always On IDN Kids activities. An activity every week", "announcedBy": "", "daysToDeadline": "2 days", "health": "ON TRACK"}, {"id": "IDN-007", "name": "IDN Traffic Recovery", "vertical": "", "owner": "Septi R", "priority": "P2 - Medium", "description": "Traffic Google Discover & Increase sessions", "start": "2026-06-02", "due": "2026-06-09", "status": "Completed", "progress": 0, "remarks": "Increase MAU= Direct + Organic ", "announcedBy": "", "daysToDeadline": -61, "health": "DONE"}, {"id": "IDN-008", "name": "IDN Audience Intelligence All Publishers", "vertical": "", "owner": "Septi R", "priority": "P2 - Medium", "description": "Monthly Data Web + Socmed + Community", "start": "2026-06-01", "due": "2026-06-08", "status": "Completed", "progress": 0, "remarks": "Monthly Data all Publishers", "announcedBy": "", "daysToDeadline": -62, "health": "DONE"}, {"id": "IDN-009", "name": "Community Support: Hyrox Training Event x Miniletics ", "vertical": "Popbela", "owner": "Donny A", "priority": "P1 - High", "description": "Community Partner.\n\nExplore opportunities within the growing HYROX community, validate audience interest, and build relationships with fitness enthusiasts through a relevant community-led activation.", "start": "2026-06-01", "due": "2026-06-14", "status": "Completed", "progress": 100, "remarks": "# of Community\nPartner: Miniletics \nVenue: Eastvara BSD\nDate: 14 June 2026\nDapat 3 slot join Hyrox", "announcedBy": "", "daysToDeadline": -56, "health": "DONE"}, {"id": "IDN-010", "name": "Marketing Support: BFA Masterclass: Scent of Chemistry", "vertical": "Popbela", "owner": "Donny A", "priority": "P1 - High", "description": "Marketing support.\n\nMaintain BeautyFest Asia’s audience engagement during the off-event period while building anticipation and awareness for upcoming BeautyFest Asia event.", "start": "2026-06-01", "due": "2026-06-30", "status": "Cancelled", "progress": 60, "remarks": "# of Community\nRoad to BFA\nBelum ada update lanjutan dari PIC (Diza, Redaksi)", "announcedBy": "", "daysToDeadline": -40, "health": "CANCELLED"}, {"id": "IDN-011", "name": "Yummy Collective: Open Trip", "vertical": "Yummy", "owner": "Donny A", "priority": "P2 - Medium", "description": "Marketing support.\n\nBuild an engaged Yummy community through an offline gathering, while validating the potential for future brand-led community activations.", "start": "2026-06-01", "due": "2026-06-30", "status": "Completed", "progress": 100, "remarks": "# of Community\nInfo dari PIC (Aya, Redaksi), masih menunggu brand tap-in untuk jalan eventnya", "announcedBy": "", "daysToDeadline": -40, "health": "DONE"}, {"id": "IDN-012", "name": "Cooking Workshop for Kids", "vertical": "Yummy", "owner": "Donny A", "priority": "P2 - Medium", "description": "Marketing support.\n\nEngage young families through a premium cooking experience, while strengthening Yummy and Popmama’s brand positioning and expanding reach among affluent family audiences.", "start": "2026-06-01", "due": "2026-06-28", "status": "Completed", "progress": 0, "remarks": "# of Community\nYummy X Popmama\nPartner: Nonna Bona\nVenue: Nonna Bona\nDate: 28 June 2026\nOn progress SPK", "announcedBy": "", "daysToDeadline": -42, "health": "DONE"}, {"id": "IDN-013", "name": "Giveaway: Family Day Moments", "vertical": "Popmama", "owner": "Donny A", "priority": "P1 - High", "description": "Social Media Giveaway.\n\nDrive audience engagement on Instagram by encouraging user participation and interactions through a family-themed giveaway campaign.", "start": "2026-06-01", "due": "2026-06-11", "status": "Completed", "progress": 100, "remarks": "# of Engagement\nPartner: Double Tree Hotel\nPeriode Giveaway: 12-18 Juni 2026\nPengumuman pemenang: 19 Juni 2026\nOn preview design", "announcedBy": "", "daysToDeadline": -59, "health": "DONE"}, {"id": "IDN-014", "name": "Karaoke Night: Bring Back 2016", "vertical": "Popmama", "owner": "Donny A", "priority": "P1 - High", "description": "Community event.\n\nStrengthen community engagement through a shared entertainment experience, while fostering a long-term partnership with ARTOTEL Simpang Temu and exploring additional revenue opportunities through a revenue-sharing model.", "start": "2026-06-01", "due": "2026-06-30", "status": "Completed", "progress": 100, "remarks": "# of Community\nVenue (Most likely): ARTOTEL Simpang Temu\nPilihan tanggal: 3 / 24 / 31 July\nDECK\nBudget: IDR 4,000,000", "announcedBy": "", "daysToDeadline": -40, "health": "DONE"}, {"id": "IDN-015", "name": "Yummy X Popbela's Baking Class: Ube Mochi Salted Bread", "vertical": "Yummy", "owner": "Donny A", "priority": "P2 - Medium", "description": "Community event.\n\nValidate market demand for baking-focused community programs while building connections with baking enthusiasts and potential industry partners.", "start": "2026-06-01", "due": "2026-08-08", "status": "In Progress", "progress": 50, "remarks": "# of Community\nYummy X Popmama\nPartner: Rumarumi\nVenue: TBD\nDate: 24 / 31 July\nDECK", "announcedBy": "", "daysToDeadline": -1, "health": "OVERDUE"}, {"id": "IDN-016", "name": "Pesta Anak Bahagia", "vertical": "Popmama", "owner": "Donny A", "priority": "P1 - High", "description": "Marketing support.\n\nSupport promotion of Popmama’s signature event to maximize awareness, audience reach, and event participation across multiple channels.", "start": "2026-06-01", "due": "2026-07-25", "status": "In Progress", "progress": 90, "remarks": "# of Community\nMarketing Support: Social Content based on articles create by publisher\nDate: 25 July 2025\nDECK", "announcedBy": "", "daysToDeadline": -15, "health": "OVERDUE"}, {"id": "IDN-017", "name": "Brand Support: Netflix Community Gathering \"Aku Sebelum Aku\"", "vertical": "Popmama", "owner": "Donny A", "priority": "P2 - Medium", "description": "Community support. Facilitate brand integration within the community ecosystem to drive authentic engagement and create meaningful interactions with community members.", "start": "2026-06-01", "due": "2026-07-18", "status": "Completed", "progress": 100, "remarks": "# of Community\nBrand: Netflix\nVenue: The Plaza\nDate: 18 July 2026\nKPI: 50 Moms & 50 Dads", "announcedBy": "", "daysToDeadline": -22, "health": "DONE"}, {"id": "IDN-018", "name": "Mama Moves: Babywearing Dance Vol. 2", "vertical": "Popmama", "owner": "Donny A", "priority": "P3 - Low", "description": "Community support.\n\nSupport doorprize to acquire new member: 30 member.", "start": "2026-06-01", "due": "2026-06-27", "status": "Completed", "progress": 100, "remarks": "# of Community\nPartner: Ruang mama \nVenue: HOM Gym, Mampang\nDate: 27 June 2026", "announcedBy": "", "daysToDeadline": -43, "health": "DONE"}, {"id": "IDN-019", "name": "IDN Times: Bookish Fun Meet - Turning Pages into Stories", "vertical": "IDN Times", "owner": "Irabilla", "priority": "P2 - Medium", "description": "Community Event & New Community Conversions", "start": "2026-06-01", "due": "2026-06-26", "status": "Completed", "progress": 100, "remarks": "# of Community recruited : 23\nPartner: 1\nVenue: IDN HQ, Jakarta\nDate: 26 June 2026", "announcedBy": "", "daysToDeadline": -44, "health": "DONE"}, {"id": "IDN-020", "name": "ICE: Yogya Creator Confrance x ICE", "vertical": "ICE", "owner": "Irabilla", "priority": "P3 - Low", "description": "Brand Awareness & Conten Creator Recruited", "start": "2026-03-16", "due": "2026-08-22", "status": "In Progress", "progress": 70, "remarks": " # of content creator recruited\nPartner: Ambarrukmo\nVenue: Pelataran Ambarrukmo, Jogjakarta\nDate: 22 Agst 2026\nDeck", "announcedBy": "", "daysToDeadline": 13, "health": "AT RISK"}, {"id": "IDN-021", "name": "IS 2026: Community Hub", "vertical": "IDN Times", "owner": "Irabilla", "priority": "P1 - High", "description": "Collaboration & Brand Awareness", "start": "2026-04-17", "due": "2026-06-18", "status": "Completed", "progress": 100, "remarks": " # of partcipants: AISECE - 56, PINA - 55, Indonesia Mengajar - 57, Proxis - 59 ", "announcedBy": "", "daysToDeadline": -52, "health": "DONE"}, {"id": "IDN-022", "name": "IS 2026: LeapLab Session", "vertical": "IDN Times", "owner": "Irabilla", "priority": "P1 - High", "description": "Community support", "start": "2026-05-06", "due": "2026-06-16", "status": "Completed", "progress": 100, "remarks": " # of participants: 79 for 3 classes\n# of community member recruited: 38", "announcedBy": "", "daysToDeadline": -54, "health": "DONE"}, {"id": "IDN-023", "name": "IS 2026: Partnership Support", "vertical": "IDN Times", "owner": "Christine", "priority": "P1 - High", "description": "Support signature event for venue, OOH, hospitality crew, hospital, meals & logistic crew.", "start": "2026-04-09", "due": "2026-06-16", "status": "Completed", "progress": 100, "remarks": "# of participants: 640", "announcedBy": "", "daysToDeadline": -54, "health": "DONE"}, {"id": "IDN-024", "name": "TT12: Partnership Support", "vertical": "Corporate", "owner": "Christine", "priority": "P1 - High", "description": "Support Timmyversary for venue, meals & merchandise.", "start": "2026-05-12", "due": "2026-06-17", "status": "Completed", "progress": 100, "remarks": "The Tribrata Jakarta, Java Paragon Surabaya, & Quppa", "announcedBy": "", "daysToDeadline": -53, "health": "DONE"}, {"id": "IDN-025", "name": "Hari Pesta Anak Bahagia: Partnership Support", "vertical": "Popmama", "owner": "Christine", "priority": "P2 - Medium", "description": "Support publisher needs for venue event with the potential full partnership for Hari Pesta Anak Bahagia", "start": "2026-05-21", "due": "2026-07-02", "status": "Completed", "progress": 100, "remarks": "Gandaria City Mall", "announcedBy": "", "daysToDeadline": -38, "health": "DONE"}, {"id": "IDN-026", "name": "Fortune Investment Forum: Partnership Support", "vertical": "Fortune", "owner": "Christine", "priority": "P2 - Medium", "description": "Support publisher needs for venue event's related to the content, participants, budget, and SES B-A", "start": "2026-04-01", "due": "2026-06-15", "status": "In Progress", "progress": 90, "remarks": "Four Seasons Hotel", "announcedBy": "", "daysToDeadline": -55, "health": "OVERDUE"}, {"id": "IDN-027", "name": "IDN Bloc: Skeleton Deck Venue Management Extension Proposal to Peruri", "vertical": "IDN Bloc", "owner": "Wendy N", "priority": "P2 - Medium", "description": "IDN Bloc is excited to expand our collaboration even further by activating wider area at M Bloc.", "start": "2026-05-22", "due": "2026-06-01", "status": "Completed", "progress": 100, "remarks": "Successful collaboration with Peruri to expand coverage area", "announcedBy": "", "daysToDeadline": -69, "health": "DONE"}, {"id": "IDN-028", "name": "IDN Ads: Create SEO Suggestion for Page Mitra", "vertical": "IDN Ads", "owner": "Wendy N", "priority": "P2 - Medium", "description": "SEO friendly page mitra for ads.idn.media", "start": "2026-06-04", "due": "2026-06-10", "status": "Completed", "progress": 100, "remarks": "All SEO suggestions have been implemented", "announcedBy": "", "daysToDeadline": -60, "health": "DONE"}, {"id": "IDN-029", "name": "IDN Bloc: Strategy Marketing 2026", "vertical": "IDN Bloc", "owner": "Wendy N", "priority": "P2 - Medium", "description": "Strategy to increase the growth of IDN Bloc network", "start": "2026-06-02", "due": "2026-06-22", "status": "Completed", "progress": 100, "remarks": "IDN Bloc network growth is increasing", "announcedBy": "", "daysToDeadline": -48, "health": "DONE"}, {"id": "IDN-030", "name": "Saweria: SEO Web Audit and Suggestion", "vertical": "Saweria", "owner": "Wendy N", "priority": "P2 - Medium", "description": "SEO strategy 2026", "start": "2026-06-03", "due": "2026-06-15", "status": "Completed", "progress": 100, "remarks": "", "announcedBy": "", "daysToDeadline": -55, "health": "DONE"}, {"id": "IDN-031", "name": "GGWP: SEO Web Audit and Suggestion", "vertical": "GGWP", "owner": "Wendy N", "priority": "P2 - Medium", "description": "SEO strategy 2026", "start": "2026-06-05", "due": "2026-06-15", "status": "Completed", "progress": 100, "remarks": "", "announcedBy": "", "daysToDeadline": -55, "health": "DONE"}, {"id": "IDN-032", "name": "FORTUNE: Fortune Investment Forum", "vertical": "Fortune", "owner": "Wendy N", "priority": "P2 - Medium", "description": "Marketing Plan, Ads, Email Marketing, Social Media, Community, Partnership", "start": "2026-06-08", "due": "2026-07-06", "status": "Completed", "progress": 100, "remarks": "", "announcedBy": "", "daysToDeadline": -34, "health": "DONE"}, {"id": "IDN-033", "name": "Saweria: Instagram and Community Plan", "vertical": "Saweria", "owner": "Wendy N", "priority": "P3 - Low", "description": "", "start": "2026-05-25", "due": "2026-06-08", "status": "Completed", "progress": 100, "remarks": "", "announcedBy": "", "daysToDeadline": -62, "health": "DONE"}, {"id": "IDN-034", "name": "IDN Kids: Instagram and Community Plan", "vertical": "", "owner": "Wendy N", "priority": "P3 - Low", "description": "", "start": "2026-06-08", "due": "2026-06-17", "status": "Completed", "progress": 100, "remarks": "", "announcedBy": "", "daysToDeadline": -53, "health": "DONE"}, {"id": "IDN-035", "name": "Pestapora 2026: Partnership Support", "vertical": "Boss Creator", "owner": "Christine", "priority": "P2 - Medium", "description": "Support collaboration with partner potential to fullfill the content as accomodation, services, Jingle, OOH partners ", "start": "2026-11-05", "due": "2026-09-03", "status": "In Progress", "progress": 60, "remarks": "White Horse, Day Trans, Mamasewa, City Vision, AMG, MING Kuningan City, MRTJ, LRT Jakarta.", "announcedBy": "", "daysToDeadline": 25, "health": "ON TRACK"}, {"id": "IDN-036", "name": "Fortune Gala: Partnership Support", "vertical": "Fortune", "owner": "Christine", "priority": "P2 - Medium", "description": "Support publisher needs for venue event's related to the content, participants, budget, and SES B-A.", "start": "2026-05-04", "due": "2026-06-26", "status": "In Progress", "progress": 90, "remarks": "Hotel Mulia Senayan", "announcedBy": "", "daysToDeadline": -44, "health": "OVERDUE"}, {"id": "IDN-037", "name": "BFA Surabaya 2026: Partnership Support", "vertical": "Popbela", "owner": "Christine", "priority": "P2 - Medium", "description": "Support signature event for venue event, OOH, doorprize, hospitality crew, hospital, and logistic crew.", "start": "2025-11-18", "due": "2026-10-08", "status": "In Progress", "progress": 70, "remarks": "Hall TP 3 Surabaya, Swiss-Belhotel Tunjungan Surabaya.", "announcedBy": "", "daysToDeadline": 60, "health": "ON TRACK"}, {"id": "IDN-038", "name": "IDN Times: Giveaway Konser Woodz", "vertical": "IDN Times", "owner": "Irabilla", "priority": "P3 - Low", "description": "New Community Conversions & New Followers Instagram", "start": "2026-05-01", "due": "2026-05-05", "status": "Completed", "progress": 100, "remarks": "77 participants & +/- 13% Aquisitions (more 10 members)", "announcedBy": "", "daysToDeadline": -96, "health": "DONE"}, {"id": "IDN-039", "name": "IDN Times: Giveaway Jakarta Art Momen", "vertical": "IDN Times", "owner": "Irabilla", "priority": "P3 - Low", "description": "New Community Conversions & New Followers Instagram", "start": "2026-06-01", "due": "2026-06-03", "status": "Completed", "progress": 100, "remarks": "45 participants & +/- 44% Aquisitions (more 20 members)", "announcedBy": "", "daysToDeadline": -67, "health": "DONE"}, {"id": "IDN-040", "name": "IDN Times: Challange StarWars", "vertical": "IDN Times", "owner": "Irabilla", "priority": "P3 - Low", "description": "New Community Conversions & New Followers Instagram", "start": "2026-06-03", "due": "2026-06-06", "status": "Completed", "progress": 100, "remarks": "229 participants & +/- 67% Aquisitions (more 200 members)", "announcedBy": "", "daysToDeadline": -64, "health": "DONE"}, {"id": "IDN-041", "name": "IDN Times: Giveaway HUT IDN Times", "vertical": "IDN Times", "owner": "Irabilla", "priority": "P3 - Low", "description": "New Community Conversions & New Followers Instagram", "start": "2026-06-08", "due": "2026-06-10", "status": "Completed", "progress": 100, "remarks": "60 participants & +/- 42% Aquisitions (more 25 members)", "announcedBy": "", "daysToDeadline": -60, "health": "DONE"}, {"id": "IDN-042", "name": "Duniaku: Giveaway One Piece Run ", "vertical": "Duniaku", "owner": "Irabilla", "priority": "P3 - Low", "description": "New Community Conversions & New Followers Instagram", "start": "2026-05-21", "due": "2026-05-25", "status": "Completed", "progress": 100, "remarks": "31 participants & +/- 64% Aquisitions (more 20 members)", "announcedBy": "", "daysToDeadline": -76, "health": "DONE"}, {"id": "IDN-043", "name": "IDN Times: Giveaway Piala Dunia", "vertical": "IDN Times", "owner": "Irabilla", "priority": "P3 - Low", "description": "New Community Conversions & New Followers Instagram", "start": "2026-06-23", "due": "2026-06-25", "status": "Completed", "progress": 100, "remarks": "# of participant & # of Aquisition", "announcedBy": "", "daysToDeadline": -45, "health": "DONE"}, {"id": "IDN-044", "name": "Duniaku: Anniversary Duniaku", "vertical": "Duniaku", "owner": "Irabilla", "priority": "P2 - Medium", "description": "New Community Conversions & Attract potential sponsors", "start": "2026-06-22", "due": "2026-09-27", "status": "In Progress", "progress": 50, "remarks": "# of Community recruited:\n# of participant:\nPartner: \nVenue: Melting Pop, MBloc\nDate: 27 Sept 2026", "announcedBy": "", "daysToDeadline": 49, "health": "ON TRACK"}, {"id": "IDN-045", "name": "PAPION: Partnership Support", "vertical": "", "owner": "Christine", "priority": "P2 - Medium", "description": "Event collaboration perform at Indonesia Fashion Week 1 August 2026", "start": "2026-05-12", "due": "", "status": "Completed", "progress": 100, "remarks": "Branding for PAPION", "announcedBy": "", "daysToDeadline": -89, "health": "DONE"}, {"id": "IDN-046", "name": "IDN Yearly Activity Calendar", "vertical": "Corporate", "owner": "Widya", "priority": "P1 - High", "description": "Recap yearly annual activity done by Marketing Managers and will be compiled by Widya", "start": "2026-06-25", "due": "2026-06-30", "status": "In Progress", "progress": 0, "remarks": "To have high level strategy on IDN in overall, make work more effective", "announcedBy": "No", "daysToDeadline": -40, "health": "OVERDUE"}, {"id": "IDN-047", "name": "Duniaku: Warga Karaoke", "vertical": "Duniaku", "owner": "Irabilla", "priority": "P2 - Medium", "description": "New Community Conversions & Attract potential sponsors", "start": "2026-05-01", "due": "2026-06-29", "status": "Completed", "progress": 100, "remarks": "# of Community recruited: 41\nPartner: 4\nVenue: IDN HQ, Jakarta\nDate: 29 Mei 2026", "announcedBy": "", "daysToDeadline": -41, "health": "DONE"}, {"id": "IDN-048", "name": "Duniaku: Warga Nonton Bareng One Piece", "vertical": "Duniaku", "owner": "Irabilla", "priority": "P2 - Medium", "description": "New Community Conversions & Attract potential sponsors", "start": "2026-02-16", "due": "2026-04-10", "status": "Completed", "progress": 100, "remarks": "# of Community recruited: 61\nPartner: 1\nVenue: IDN HQ, Jakarta\nDate: 10 April 2026", "announcedBy": "", "daysToDeadline": -121, "health": "DONE"}, {"id": "IDN-049", "name": "Partnership: Living English Holiday Series", "vertical": "Popmama", "owner": "Christine", "priority": "P1 - High", "description": "Collaboration event for branding activity", "start": "2026-06-12", "due": "2026-07-08", "status": "Completed", "progress": 100, "remarks": "Living English", "announcedBy": "", "daysToDeadline": -32, "health": "DONE"}, {"id": "IDN-050", "name": "Brand Kit IDN Times", "vertical": "IDN Times", "owner": "Septi R", "priority": "P1 - High", "description": "Quarterly report marketing for IDN Times", "start": "2026-07-01", "due": "", "status": "Completed", "progress": 100, "remarks": "Insight & Learning for the next quarter IDN Times - Brand Kit Q2 2026 - Marketing Commercial & Innovation", "announcedBy": "No", "daysToDeadline": "", "health": "DONE"}, {"id": "IDN-051", "name": "Brand Kit Popmama", "vertical": "Popmama", "owner": "Septi R", "priority": "P1 - High", "description": "Quarterly report marketing for Popmama", "start": "2026-07-01", "due": "", "status": "Completed", "progress": 100, "remarks": "Insight & Learning for the next quarter Popmama - Brand Kit Q2 2026", "announcedBy": "No", "daysToDeadline": "", "health": "DONE"}, {"id": "IDN-052", "name": "Brand Kit Popbela", "vertical": "Popbela", "owner": "Septi R", "priority": "P1 - High", "description": "Quarterly report marketing for Popbela", "start": "2026-07-01", "due": "", "status": "Completed", "progress": 100, "remarks": "Insight & Learning for the next quarter [FIXED] Popbela - Brand Kit Q2 2026", "announcedBy": "No", "daysToDeadline": "", "health": "DONE"}, {"id": "IDN-053", "name": "Brand Kit Fortune", "vertical": "Fortune", "owner": "Septi R", "priority": "P1 - High", "description": "Quarterly report marketing for Fortune", "start": "2026-07-01", "due": "", "status": "Completed", "progress": 100, "remarks": "Insight & Learning for the next quarter Fortune Indonesia - Brand Kit Q2 2026", "announcedBy": "No", "daysToDeadline": "", "health": "DONE"}, {"id": "IDN-054", "name": "Quarterly Marketing Commercial & Innovation Report", "vertical": "Corporate", "owner": "Septi R", "priority": "P2 - Medium", "description": "Quarterly report for marketing", "start": "2026-07-01", "due": "", "status": "Completed", "progress": 100, "remarks": "Insight & Learning for the next quarter Quarterly - Marketing Commercial & Innovation (Q2 2026)", "announcedBy": "No", "daysToDeadline": "", "health": "DONE"}, {"id": "IDN-055", "name": "Hyperlocal Data Update", "vertical": "IDN Creative", "owner": "Septi R", "priority": "P1 - High", "description": "BD needs to present to pemda", "start": "2026-07-01", "due": "2026-06-07", "status": "Completed", "progress": 100, "remarks": "Hyperlocal Data Hyperlocal IDN Times - Unique Reach & Social Reach (Cut Off: May 2026 only)", "announcedBy": "No", "daysToDeadline": "", "health": "DONE"}, {"id": "IDN-056", "name": "Gemini AI x BTS Concert", "vertical": "IDN Pictures", "owner": "Septi R", "priority": "P1 - High", "description": "Creative needs for Gemini AI", "start": "2026-07-06", "due": "2026-08-07", "status": "Completed", "progress": 100, "remarks": "Gemini AI x BTS Concert in Jakarta Audience Intelligence Gemini AI x BTS - Marketing Commercial & Innovation", "announcedBy": "No", "daysToDeadline": "", "health": "DONE"}, {"id": "IDN-057", "name": "Ads Budget Plan for FIF 2026", "vertical": "Fortune", "owner": "Septi R", "priority": "P1 - High", "description": "FIF Ads & Content Tracker", "start": "2026-06-09", "due": "2026-06-09", "status": "Completed", "progress": 100, "remarks": "Ads & Content Tracker [FIF 2026] Performance Ads Report and Tracker ", "announcedBy": "No", "daysToDeadline": "", "health": "DONE"}, {"id": "IDN-058", "name": "insight & Data Rela Talk & POV Times", "vertical": "IDN Times", "owner": "Septi R", "priority": "P2 - Medium", "description": "Commercial needs ", "start": "2026-06-09", "due": "2026-06-11", "status": "Completed", "progress": 100, "remarks": "Data & Insight Youtube Real Talk & POV Times", "announcedBy": "No", "daysToDeadline": "", "health": "DONE"}, {"id": "IDN-059", "name": "Ads Inventory all IDN", "vertical": "Corporate", "owner": "Septi R", "priority": "P2 - Medium", "description": "To improve our Core Web Vitals", "start": "2026-07-01", "due": "2026-07-14", "status": "Completed", "progress": 100, "remarks": "Inventory Ads IDN - Marketing Commercial & Innovation", "announcedBy": "No", "daysToDeadline": "", "health": "DONE"}, {"id": "IDN-060", "name": "IDN Community Connect", "vertical": "Corporate", "owner": "Septi R", "priority": "P2 - Medium", "description": "To make IDN Community more feasible on website ", "start": "2026-07-22", "due": "", "status": "In Progress", "progress": 0, "remarks": "", "announcedBy": "", "daysToDeadline": "", "health": "NO DEADLINE"}, {"id": "IDN-061", "name": "IDN Times: Teka Teki Gen Alpha", "vertical": "IDN Times", "owner": "Irabilla", "priority": "P2 - Medium", "description": "Promotion & Attract potential sponsors", "start": "2026-07-20", "due": "2026-08-21", "status": "In Progress", "progress": 50, "remarks": "Promo by SEO content & Social Media", "announcedBy": "", "daysToDeadline": "", "health": "AT RISK"}, {"id": "IDN-062", "name": "IDN Times: Majalah Dinding Competation", "vertical": "IDN Times", "owner": "Irabilla", "priority": "P2 - Medium", "description": "Promotion & Attract potential sponsors", "start": "2026-08-31", "due": "2026-11-30", "status": "In Progress", "progress": 30, "remarks": "Promo by SEO content & Social Media", "announcedBy": "", "daysToDeadline": "", "health": "EARLY"}, {"id": "IDN-063", "name": "IDN Times: Liga Debat Mahasiswa", "vertical": "IDN Times", "owner": "Irabilla", "priority": "P2 - Medium", "description": "Promotion & Attract potential sponsors", "start": "2026-07-13", "due": "2026-08-18", "status": "In Progress", "progress": 70, "remarks": "KPI: 50 participants from campus", "announcedBy": "", "daysToDeadline": "", "health": "AT RISK"}, {"id": "IDN-064", "name": "IDN Times: 2 Tahun Prabowo", "vertical": "IDN Times", "owner": "Irabilla", "priority": "P2 - Medium", "description": "Promotion & Attract potential sponsors", "start": "2026-07-26", "due": "2026-10-14", "status": "In Progress", "progress": 30, "remarks": "Promo by SEO content & Social Media\nKPI: 100 participants", "announcedBy": "", "daysToDeadline": "", "health": "ON TRACK"}, {"id": "IDN-065", "name": "IDN Times: Subsidi Energi & Ketahanan Energi", "vertical": "IDN Times", "owner": "Irabilla", "priority": "P1 - High", "description": "Awareness ", "start": "2026-07-23", "due": "2026-08-05", "status": "In Progress", "progress": 80, "remarks": "KPI: 100 participants", "announcedBy": "", "daysToDeadline": "", "health": "OVERDUE"}];
+
+const VERTICAL_COLORS = {
+  'IDN Times': '#d0021b',
+  'Duniaku': '#F54927',
+  'Fortune': '#0101F4',
+  'Popbela': '#F5276C',
+  'Popmama': '#5E1FFF',
+  'Yummy': '#F5B027',
+  'GGWP': '#B8960C',
+  'Corporate': '#4b5563',
+  'ICE': '#7c3aed',
+  'IDN Creative': '#0891b2',
+  'IDN Ads': '#ea580c',
+  'Saweria': '#db2777',
+  'IDN Bloc': '#65a30d',
+  'IDN Kids': '#d97706',
+  'Boss Creator': '#0d9488',
+  'IDN Pictures': '#4f46e5',
+};
+function verticalColor(v){ return VERTICAL_COLORS[v] || '#8a8578'; }
+
+const HEALTH_COLORS = {
+  'DONE':'#16a34a', 'ON TRACK':'#2563eb', 'EARLY':'#0891b2',
+  'AT RISK':'#d97706', 'OVERDUE':'#dc2626', 'CANCELLED':'#6b7280', 'NO DEADLINE':'#9ca3af'
+};
+const STATUS_COLORS = { 'Completed':'#16a34a', 'In Progress':'#2563eb', 'Cancelled':'#6b7280' };
+function priorityColor(p){
+  if (!p) return '#94a3b8';
+  if (p.indexOf('P0') === 0) return '#dc2626';
+  if (p.indexOf('P1') === 0) return '#ea580c';
+  if (p.indexOf('P2') === 0) return '#d97706';
+  if (p.indexOf('P3') === 0) return '#2563eb';
+  if (p.indexOf('P4') === 0) return '#16a34a';
+  return '#94a3b8';
+}
+
+let currentFilters = { vertical:'all', owner:'all', status:'all', health:'all' };
+
+// Default the period picker to the year most of the real data actually
+// falls in, so switching to Monthly/Quarterly/Yearly doesn't land on an
+// empty year by surprise.
+let periodFilters = { type:'all', from:'2026-01-01', to:'2026-12-31', month:0, quarter:'Q1', year:2026 };
+const MONTH_FULL = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+function periodBounds() {
+  if (periodFilters.type === 'range') return { from: periodFilters.from, to: periodFilters.to };
+  if (periodFilters.type === 'month') {
+    const y = periodFilters.year, m = periodFilters.month;
+    const lastDay = new Date(y, m+1, 0).getDate();
+    return { from: `${y}-${String(m+1).padStart(2,'0')}-01`, to: `${y}-${String(m+1).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}` };
+  }
+  if (periodFilters.type === 'quarter') {
+    const y = periodFilters.year;
+    const qStartMonth = { Q1:0, Q2:3, Q3:6, Q4:9 }[periodFilters.quarter];
+    const endMonth = qStartMonth + 2;
+    const lastDay = new Date(y, endMonth+1, 0).getDate();
+    return { from: `${y}-${String(qStartMonth+1).padStart(2,'0')}-01`, to: `${y}-${String(endMonth+1).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}` };
+  }
+  if (periodFilters.type === 'year') {
+    return { from: `${periodFilters.year}-01-01`, to: `${periodFilters.year}-12-31` };
+  }
+  return null; // 'all' — no period filtering
+}
+
+function initFilters() {
+  const verticals = [...new Set(ALL_PROJECTS.map(p => p.vertical).filter(Boolean))].sort();
+  const owners = [...new Set(ALL_PROJECTS.map(p => p.owner).filter(Boolean))].sort();
+  document.getElementById('verticalFilter').innerHTML = '<option value="all">All Verticals</option>' + verticals.map(v => `<option value="${v}">${v}</option>`).join('');
+  document.getElementById('ownerFilter').innerHTML = '<option value="all">All Owners</option>' + owners.map(o => `<option value="${o}">${o}</option>`).join('');
+}
+
+// Drill-down from a KPI card click: applies the relevant filter, resets
+// the OTHER dimension (status vs. health) so the result is a clean single-
+// axis view rather than potentially compounding into an empty result with
+// whatever else was already selected, syncs the dropdown UI, then scrolls
+// to the Project List with a brief highlight so the effect is obvious.
+function applyKpiFilter(key, value) {
+  if (key === 'status') {
+    currentFilters.status = value;
+    currentFilters.health = 'all';
+    document.getElementById('healthFilter').value = 'all';
+    document.getElementById('statusFilter').value = value;
+  } else if (key === 'health') {
+    currentFilters.health = value;
+    currentFilters.status = 'all';
+    document.getElementById('statusFilter').value = 'all';
+    document.getElementById('healthFilter').value = value;
+  }
+  render();
+  const card = document.getElementById('projectListCard');
+  card.scrollIntoView({ behavior:'smooth', block:'start' });
+  card.classList.add('flash-highlight');
+  setTimeout(() => card.classList.remove('flash-highlight'), 900);
+}
+
+function filteredProjects() {
+  const bounds = periodBounds();
+  return ALL_PROJECTS.filter(p => {
+    if (currentFilters.vertical !== 'all' && p.vertical !== currentFilters.vertical) return false;
+    if (currentFilters.owner !== 'all' && p.owner !== currentFilters.owner) return false;
+    if (currentFilters.status !== 'all' && p.status !== currentFilters.status) return false;
+    if (currentFilters.health !== 'all' && p.health !== currentFilters.health) return false;
+    if (bounds) {
+      // A project needs BOTH dates to be checked against a period — those
+      // missing one (like ones with no deadline set) are excluded once a
+      // specific period is chosen, since there's no way to know if they
+      // actually fall inside it.
+      if (!p.start || !p.due) return false;
+      const projEnd = p.due || p.start;
+      if (!(p.start <= bounds.to && projEnd >= bounds.from)) return false;
+    }
+    return true;
+  });
+}
+
+const charts = {};
+function destroyChart(key){ if (charts[key]) { charts[key].destroy(); delete charts[key]; } }
+
+function render() {
+  const projects = filteredProjects();
+  const total = projects.length || 1;
+
+  const statusCounts = {};
+  ['Completed','In Progress','Cancelled'].forEach(s => statusCounts[s] = projects.filter(p=>p.status===s).length);
+  const atRisk = projects.filter(p => p.health === 'AT RISK').length;
+  const overdue = projects.filter(p => p.health === 'OVERDUE').length;
+
+  const statusKpis = [
+    { label:'Total Projects', val:projects.length, sub:'100% of Portfolio', color:'#1a2f4b', icon:'📁', filterKey:'status', filterVal:'all' },
+    { label:'Completed', val:statusCounts['Completed'], sub:Math.round(statusCounts['Completed']/total*100)+'%', color:'#16a34a', icon:'✅', filterKey:'status', filterVal:'Completed' },
+    { label:'In Progress', val:statusCounts['In Progress'], sub:Math.round(statusCounts['In Progress']/total*100)+'%', color:'#2563eb', icon:'🔄', filterKey:'status', filterVal:'In Progress' },
+    { label:'Cancelled', val:statusCounts['Cancelled'], sub:Math.round(statusCounts['Cancelled']/total*100)+'%', color:'#6b7280', icon:'🚫', filterKey:'status', filterVal:'Cancelled' },
+  ];
+  const healthKpis = [
+    { label:'At Risk', val:atRisk, sub:Math.round(atRisk/total*100)+'% of Total', color:'#d97706', icon:'⚠️', filterKey:'health', filterVal:'AT RISK', variant:'warn-amber' },
+    { label:'Overdue', val:overdue, sub:Math.round(overdue/total*100)+'% of Total', color:'#dc2626', icon:'❗', filterKey:'health', filterVal:'OVERDUE', variant:'warn-red' },
+  ];
+  const kpiCardHtml = k => `
+    <div class="card kpi-card ${k.variant||''}" onclick="applyKpiFilter('${k.filterKey}','${k.filterVal}')" title="Click to filter the project list below">
+      <div class="kpi-icon" style="background:${k.color};">${k.icon}</div>
+      <div><div class="kpi-label">${k.label}</div><div class="kpi-val">${k.val}</div><div class="kpi-sub">${k.sub}</div></div>
+    </div>`;
+  const warnCardHtml = k => `
+    <div class="card kpi-card warn-flat ${k.variant||''}" onclick="applyKpiFilter('${k.filterKey}','${k.filterVal}')" title="Click to filter the project list below">
+      <div class="kpi-icon" style="background:${k.color};">${k.icon}</div>
+      <div class="kpi-label">${k.label}</div>
+      <div class="warn-val-wrap"><span class="kpi-val">${k.val}</span><span class="kpi-sub">${k.sub}</span></div>
+    </div>`;
+  document.getElementById('kpiRowStatus').innerHTML = statusKpis.map(kpiCardHtml).join('');
+  document.getElementById('kpiRowHealth').innerHTML = healthKpis.map(warnCardHtml).join('');
+
+
+  const avgProgress = projects.length ? Math.round(projects.reduce((s,p)=>s+p.progress,0)/projects.length) : 0;
+  destroyChart('gauge');
+  charts.gauge = new Chart(document.getElementById('gaugeChart'), {
+    type:'doughnut',
+    data:{ datasets:[{ data:[avgProgress,100-avgProgress], backgroundColor:['#2563eb','#eef0ee'], borderWidth:0, cutout:'78%' }] },
+    options:{ responsive:true, maintainAspectRatio:false, circumference:270, rotation:225, plugins:{legend:{display:false},tooltip:{enabled:false}} }
+  });
+  document.getElementById('gaugePctLabel').textContent = avgProgress + '%';
+
+  destroyChart('statusBar');
+  charts.statusBar = new Chart(document.getElementById('statusBarChart'), {
+    type:'bar',
+    data:{ labels:Object.keys(statusCounts), datasets:[{ data:Object.values(statusCounts), backgroundColor:Object.keys(statusCounts).map(s=>STATUS_COLORS[s]), borderRadius:5 }] },
+    options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ x:{grid:{color:'#eee'}}, y:{grid:{display:false}} } }
+  });
+
+  const priorityCounts = {};
+  projects.forEach(p => { const key = p.priority || 'Unspecified'; priorityCounts[key] = (priorityCounts[key]||0)+1; });
+  destroyChart('priorityDonut');
+  charts.priorityDonut = new Chart(document.getElementById('priorityDonut'), {
+    type:'doughnut',
+    data:{ labels:Object.keys(priorityCounts), datasets:[{ data:Object.values(priorityCounts), backgroundColor:Object.keys(priorityCounts).map(k=>priorityColor(k)), borderWidth:0 }] },
+    options:{ responsive:true, maintainAspectRatio:false, cutout:'55%', plugins:{legend:{display:false}} }
+  });
+  document.getElementById('priorityLegend').innerHTML = Object.entries(priorityCounts).map(([k,v]) => `
+    <div class="legend-row"><span class="legend-dot" style="background:${priorityColor(k)};"></span>${k}<b>${v}</b></div>`).join('');
+
+  const healthCounts = {};
+  projects.forEach(p => { const key = p.health || 'Unspecified'; healthCounts[key] = (healthCounts[key]||0)+1; });
+  destroyChart('healthDonut');
+  charts.healthDonut = new Chart(document.getElementById('healthDonut'), {
+    type:'doughnut',
+    data:{ labels:Object.keys(healthCounts), datasets:[{ data:Object.values(healthCounts), backgroundColor:Object.keys(healthCounts).map(k=>HEALTH_COLORS[k]||'#94a3b8'), borderWidth:0 }] },
+    options:{ responsive:true, maintainAspectRatio:false, cutout:'55%', plugins:{legend:{display:false}} }
+  });
+  document.getElementById('healthLegend').innerHTML = Object.entries(healthCounts).map(([k,v]) => `
+    <div class="legend-row"><span class="legend-dot" style="background:${HEALTH_COLORS[k]||'#94a3b8'};"></span>${k}<b>${v}</b></div>`).join('');
+
+  renderGantt(projects);
+
+  const byOwner = {};
+  projects.forEach(p => {
+    if (!byOwner[p.owner]) byOwner[p.owner] = { count:0, totalProgress:0 };
+    byOwner[p.owner].count += 1;
+    byOwner[p.owner].totalProgress += p.progress;
+  });
+  const ownerEntries = Object.entries(byOwner).filter(([name])=>name).map(([name, info]) => ({
+    name, count: info.count, avgProgress: Math.round(info.totalProgress / info.count)
+  })).sort((a,b) => b.avgProgress - a.avgProgress);
+  function progressColor(pct) { if (pct >= 75) return '#16a34a'; if (pct >= 40) return '#2563eb'; return '#dc2626'; }
+  document.getElementById('workloadArea').innerHTML = ownerEntries.map(o => `
+    <div class="workload-row">
+      <div class="workload-name">${o.name}</div>
+      <div class="workload-track"><div class="workload-fill" style="width:${o.avgProgress}%; background:${progressColor(o.avgProgress)};"></div></div>
+      <div class="workload-count">${o.avgProgress}%</div>
+    </div>`).join('');
+
+  document.getElementById('projectTable').innerHTML = projects.map(p => `
+    <tr onclick="openProjectModal('${p.id}')">
+      <td>${p.name}</td>
+      <td><span class="vertical-pill" style="background:${verticalColor(p.vertical)};">${p.vertical}</span></td>
+      <td>${p.owner}</td>
+      <td><span class="priority-pill" style="background:${priorityColor(p.priority)}22;color:${priorityColor(p.priority)};">${p.priority}</span></td>
+      <td><span class="status-pill" style="background:${(STATUS_COLORS[p.status]||'#94a3b8')}22;color:${STATUS_COLORS[p.status]||'#94a3b8'};">${p.status}</span></td>
+      <td><div class="progress-mini"><div class="progress-mini-track"><div class="progress-mini-fill" style="width:${p.progress}%;"></div></div>${p.progress}%</div></td>
+      <td><span class="status-pill" style="background:${(HEALTH_COLORS[p.health]||'#94a3b8')}22;color:${HEALTH_COLORS[p.health]||'#94a3b8'};">${p.health}</span></td>
+      <td>${p.due || '—'}</td>
+    </tr>`).join('');
+}
+
+function renderGantt(projects) {
+  // Legend always shows the full palette, regardless of what's in the
+  // current filtered view, so it stays a consistent reference.
+  document.getElementById('ganttLegend').innerHTML = Object.entries(HEALTH_COLORS).map(([k,c]) =>
+    `<div class="gantt-legend-item"><span class="gantt-legend-dot" style="background:${c};"></span>${k}</div>`).join('');
+
+  const withDates = projects.filter(p => p.start && p.due);
+  if (!withDates.length) { document.getElementById('ganttArea').innerHTML = '<div style="color:var(--mut);font-size:12px;">No projects with both a Start and Due Date in this view.</div>'; return; }
+  const starts = withDates.map(p => new Date(p.start).getTime());
+  const dues = withDates.map(p => new Date(p.due).getTime());
+  const rangeStart = Math.min(...starts);
+  const rangeEnd = Math.max(...dues);
+  const rangeSpan = rangeEnd - rangeStart || 1;
+
+  // Month tick positions computed on the SAME proportional timeline as the
+  // bars below, so the header labels actually line up with what they're
+  // labeling (previously these used equal-width flex columns, independent
+  // of the bars' real date-based positions — hence the misalignment).
+  const monthTicks = [];
+  let cursor = new Date(rangeStart);
+  cursor.setDate(1);
+  while (cursor.getTime() <= rangeEnd) {
+    const pos = Math.max(0, ((cursor.getTime() - rangeStart) / rangeSpan) * 100);
+    monthTicks.push({ pos, label: cursor.toLocaleDateString('en-GB',{month:'short'}) + " '" + cursor.toLocaleDateString('en-GB',{year:'2-digit'}) });
+    cursor.setMonth(cursor.getMonth()+1);
+  }
+  // A "today" reference line, so it's obvious at a glance which projects
+  // are current vs. past vs. future — without it, a Gantt chart is really
+  // just a set of unanchored bars.
+  const today = Date.now();
+  const todayInRange = today >= rangeStart && today <= rangeEnd;
+  const todayPos = ((today - rangeStart) / rangeSpan) * 100;
+  const todayMarkerHtml = todayInRange
+    ? `<div class="gantt-today-line" style="left:${todayPos}%;"><span class="gantt-today-label">Today</span></div>`
+    : '';
+
+  const headerHtml = `<div class="gantt-header-wrap"><div class="gantt-header-track">${monthTicks.map(t => `<div class="gantt-tick" style="left:${t.pos}%;">${t.label}</div>`).join('')}${todayMarkerHtml}</div></div>`;
+
+  const rowsHtml = withDates.map(p => {
+    const s = new Date(p.start).getTime(), d = new Date(p.due).getTime();
+    const left = ((s - rangeStart) / rangeSpan) * 100;
+    const width = Math.max(2.5, ((d - s) / rangeSpan) * 100);
+    const color = HEALTH_COLORS[p.health] || '#94a3b8';
+    // Narrow bars can't fit a readable label inside — show it just to the
+    // right of the bar instead, so short projects don't just look like an
+    // unlabeled dot.
+    const narrow = width < 7;
+    const barLabel = narrow
+      ? `<div class="gantt-bar" style="left:${left}%; width:${width}%; background:${color};"></div><div class="gantt-bar-label-outside" style="left:calc(${left}% + ${width}% + 4px);">${p.progress}%</div>`
+      : `<div class="gantt-bar" style="left:${left}%; width:${width}%; background:${color};">${p.progress}%</div>`;
+    return `
+      <div class="gantt-row">
+        <div class="gantt-label" title="${p.name}">${p.name}</div>
+        <div class="gantt-owner">${p.owner}</div>
+        <div class="gantt-track">
+          ${todayInRange ? `<div class="gantt-today-line" style="left:${todayPos}%; top:0;"></div>` : ''}
+          ${barLabel}
+        </div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('ganttArea').innerHTML = headerHtml + rowsHtml;
+}
+
+function openProjectModal(id) {
+  const p = ALL_PROJECTS.find(x => x.id === id);
+  if (!p) return;
+  document.getElementById('modalTitle').textContent = p.name;
+  document.getElementById('modalSub').textContent = p.vertical + ' · Owned by ' + p.owner;
+  document.getElementById('modalBadges').innerHTML = `
+    <span class="priority-pill" style="background:${priorityColor(p.priority)}22;color:${priorityColor(p.priority)};">${p.priority}</span>
+    <span class="status-pill" style="background:${(STATUS_COLORS[p.status]||'#94a3b8')}22;color:${STATUS_COLORS[p.status]||'#94a3b8'};">${p.status}</span>
+    <span class="status-pill" style="background:${(HEALTH_COLORS[p.health]||'#94a3b8')}22;color:${HEALTH_COLORS[p.health]||'#94a3b8'};">${p.health}</span>`;
+  document.getElementById('modalProgressPct').textContent = p.progress + '%';
+  document.getElementById('modalProgressFill').style.width = p.progress + '%';
+  document.getElementById('modalMetaGrid').innerHTML = `
+    <div class="modal-meta-item"><div class="l">Start Date</div><div class="v">${p.start || '—'}</div></div>
+    <div class="modal-meta-item"><div class="l">Due Date</div><div class="v">${p.due || '—'}</div></div>
+    <div class="modal-meta-item"><div class="l">Days to Deadline</div><div class="v">${p.daysToDeadline !== '' ? p.daysToDeadline : '—'}</div></div>
+    <div class="modal-meta-item"><div class="l">Project ID</div><div class="v">${p.id}</div></div>`;
+  const descWrap = document.getElementById('modalDescWrap');
+  if (p.description) { descWrap.style.display = 'block'; document.getElementById('modalDescText').textContent = p.description; }
+  else { descWrap.style.display = 'none'; }
+  const remarksWrap = document.getElementById('modalRemarksWrap');
+  if (p.remarks) { remarksWrap.style.display = 'block'; document.getElementById('modalRemarksText').textContent = p.remarks; }
+  else { remarksWrap.style.display = 'none'; }
+  document.getElementById('modalOverlay').classList.add('open');
+}
+function closeProjectModal() { document.getElementById('modalOverlay').classList.remove('open'); }
+document.getElementById('modalOverlay').addEventListener('click', (e) => { if (e.target.id === 'modalOverlay') closeProjectModal(); });
+
+function renderPeriodSubFilter() {
+  const el = document.getElementById('periodSubFilter');
+  if (periodFilters.type === 'range') {
+    el.innerHTML = `<input type="date" id="periodFromInput" value="${periodFilters.from}"><span style="color:var(--mut);margin:0 4px;font-size:11px;">to</span><input type="date" id="periodToInput" value="${periodFilters.to}">`;
+    document.getElementById('periodFromInput').onchange = document.getElementById('periodToInput').onchange = () => {
+      periodFilters.from = document.getElementById('periodFromInput').value;
+      periodFilters.to = document.getElementById('periodToInput').value;
+      render();
+    };
+  } else if (periodFilters.type === 'month') {
+    el.innerHTML = `<select id="periodMonthSel">${MONTH_FULL.map((m,i)=>`<option value="${i}" ${i===periodFilters.month?'selected':''}>${m}</option>`).join('')}</select>
+      <select id="periodYearSel"><option value="2025" ${periodFilters.year===2025?'selected':''}>2025</option><option value="2026" ${periodFilters.year===2026?'selected':''}>2026</option></select>`;
+    document.getElementById('periodMonthSel').onchange = (e) => { periodFilters.month = Number(e.target.value); render(); };
+    document.getElementById('periodYearSel').onchange = (e) => { periodFilters.year = Number(e.target.value); render(); };
+  } else if (periodFilters.type === 'quarter') {
+    el.innerHTML = `<select id="periodQtrSel">${['Q1','Q2','Q3','Q4'].map(q=>`<option ${q===periodFilters.quarter?'selected':''}>${q}</option>`).join('')}</select>
+      <select id="periodYearSel"><option value="2025" ${periodFilters.year===2025?'selected':''}>2025</option><option value="2026" ${periodFilters.year===2026?'selected':''}>2026</option></select>`;
+    document.getElementById('periodQtrSel').onchange = (e) => { periodFilters.quarter = e.target.value; render(); };
+    document.getElementById('periodYearSel').onchange = (e) => { periodFilters.year = Number(e.target.value); render(); };
+  } else if (periodFilters.type === 'year') {
+    el.innerHTML = `<select id="periodYearSel"><option value="2025" ${periodFilters.year===2025?'selected':''}>2025</option><option value="2026" ${periodFilters.year===2026?'selected':''}>2026</option></select>`;
+    document.getElementById('periodYearSel').onchange = (e) => { periodFilters.year = Number(e.target.value); render(); };
+  } else {
+    el.innerHTML = '';
+  }
+}
+document.querySelectorAll('#periodSeg button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#periodSeg button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    periodFilters.type = btn.dataset.period;
+    renderPeriodSubFilter();
+    render();
+  });
+});
+renderPeriodSubFilter();
+
+document.getElementById('verticalFilter').addEventListener('change', (e) => { currentFilters.vertical = e.target.value; render(); });
+document.getElementById('ownerFilter').addEventListener('change', (e) => { currentFilters.owner = e.target.value; render(); });
+document.getElementById('statusFilter').addEventListener('change', (e) => { currentFilters.status = e.target.value; render(); });
+document.getElementById('healthFilter').addEventListener('change', (e) => { currentFilters.health = e.target.value; render(); });
+document.getElementById('clearFiltersBtn').addEventListener('click', () => {
+  currentFilters = { vertical:'all', owner:'all', status:'all', health:'all' };
+  periodFilters = { type:'all', from:'2026-01-01', to:'2026-12-31', month:0, quarter:'Q1', year:2026 };
+  document.getElementById('verticalFilter').value = 'all';
+  document.getElementById('ownerFilter').value = 'all';
+  document.getElementById('statusFilter').value = 'all';
+  document.getElementById('healthFilter').value = 'all';
+  document.querySelectorAll('#periodSeg button').forEach(b => b.classList.toggle('active', b.dataset.period === 'all'));
+  renderPeriodSubFilter();
+  render();
+});
+
+document.getElementById('lastUpdated').textContent = 'Extracted: ' + new Date().toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+initFilters();
+render();
+</script>
+</body>
+</html>
